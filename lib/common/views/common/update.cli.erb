@@ -1,0 +1,11 @@
+<% if @not_installed %>
+Svn / Git not installed, or wpscan has not been installed with one of them.
+Update aborted
+<% elsif @aborted %>
+Update Aborted
+<% elsif @local_changes %>
+Local file changes detected, an update would override local changes.
+Update Aborted
+<% elsif @update_results %>
+<%= @update_results %>
+<% end %>

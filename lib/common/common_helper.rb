@@ -69,8 +69,8 @@ def add_trailing_slash(url)
 end
 
 # loading the updater
-require_files_from_directory(UPDATER_LIB_DIR)
-@updater = UpdaterFactory.get_updater(ROOT_DIR)
+#require_files_from_directory(UPDATER_LIB_DIR)
+#@updater = UpdaterFactory.get_updater(ROOT_DIR)
 
 if @updater
   REVISION = @updater.local_revision_number()

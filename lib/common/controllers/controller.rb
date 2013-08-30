@@ -53,9 +53,17 @@ class Controller
     format
   end
 
+  # return [ Boolean ] Return true if the controller can have user interaction, false otherwise
+  def user_interaction?
+    if format == 'cli'
+      return true if @parsed_options && !@parsed_options[:output]
+    end
+    false
+  end
+
   protected
 
-  # return [ String ] The absolute views directory path
+  # return [ String ] The absolute path of the views directory
   def views_dir
     unless @views_dir
       @views_dir = File.expand_path(File.join(

@@ -35,20 +35,24 @@ def main
 
   puts controllers[:Common].result('banner')
 
+  if wpscan_options[:update]
+    puts controllers[:Common].result('update')
+    exit(0)
+  end
+
   if wpscan_options[:version]
     puts controllers[:Common].result('version')
     exit(0)
   end
-
-  controllers[:Common].update if wpscan_options[:update]
 
   wp_target = WpTarget.new(wpscan_options[:url], wpscan_options)
 
   controllers.set_attribute('wp_target', wp_target)
 
   puts controllers[:WPScanInfo].result('scan_start')
-  puts controllers[:WPScanInfo].result('scan_stop')
 
+
+  puts controllers[:WPScanInfo].result('scan_stop')
 
   exit
 
