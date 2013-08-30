@@ -40,8 +40,7 @@ def main
     exit(0)
   end
 
-  # TODO
-  # Update
+  controllers[:Common].update if wpscan_options[:update]
 
   wp_target = WpTarget.new(wpscan_options[:url], wpscan_options)
 
@@ -55,21 +54,6 @@ def main
 
   begin
     wpscan_options = WpscanOptions.load_from_arguments
-
-    # Check for updates
-    if wpscan_options.update
-      if !@updater.nil?
-        if @updater.has_local_changes?
-          print "#{red('[!]')} Local file changes detected, an update will override local changes, do you want to continue updating? [y/n] "
-          Readline.readline =~ /^y/i ? @updater.reset_head : raise('Update aborted')
-        end
-        puts @updater.update()
-      else
-        puts 'Svn / Git not installed, or wpscan has not been installed with one of them.'
-        puts 'Update aborted'
-      end
-      exit(0)
-    end
 
     wp_target = WpTarget.new(wpscan_options.url, wpscan_options.to_h)
 

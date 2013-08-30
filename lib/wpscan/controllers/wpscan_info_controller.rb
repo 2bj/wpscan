@@ -11,7 +11,7 @@ class WPScanInfoController < WPScanController
   end
 
   def validate_parsed_options(options)
-    raise 'The url is mandatory' unless options[:url] or options[:version]
+    raise 'The url is mandatory' unless options[:url] or options[:version] or options[:update]
 
     if options[:format] && !Controller.allowed_formats.include?(options[:format])
       raise "The format #{options[:format]} is not recognized or allowed"
