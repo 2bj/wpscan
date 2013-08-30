@@ -22,8 +22,21 @@ class Controllers < Hash
     controllers.each { |controller| register_controller(controller) }
   end
 
+  # param [ Hash ] options
   def validate_parsed_options(options)
     self.each { |_, controller| controller.validate_parsed_options(options) }
+  end
+
+  # param [ String ] attr_name
+  # param [ Mixed ] value
+  def set_attribute(attr_name, value)
+    method = "#{attr_name}=".to_sym
+
+    self.each do |_, controller|
+      if controller.respond_to?(method)
+        controller.send(method, value)
+      end
+    end
   end
 
   private

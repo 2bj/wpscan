@@ -3,8 +3,6 @@
 class WPScanInfoController < WPScanController
 
   def initialize
-    super(author: 'WPScanTeam')
-
     register_options(
       ['-u', '--url TARGET_URL', 'The target url'],
       ['--format [cli,json]', 'The output format'],
@@ -13,7 +11,12 @@ class WPScanInfoController < WPScanController
   end
 
   def validate_parsed_options(options)
-    raise 'The url is mandatory' unless options[:url]
+    raise 'The url is mandatory' unless options[:url] or options[:version]
+
+    if options[:format] && !Controller.allowed_formats.include?(options[:format])
+      raise "The format #{options[:format]} is not recognized or allowed"
+    end
+
     super(options)
   end
 

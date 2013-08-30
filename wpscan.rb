@@ -5,39 +5,47 @@ $: << '.'
 require File.dirname(__FILE__) + '/lib/wpscan/wpscan_helper'
 
 def main
-  banner()
-
   # delete old logfile, check if it is a symlink first.
   File.delete(LOG_FILE) if File.exist?(LOG_FILE) and !File.symlink?(LOG_FILE)
 
   option_parser = CustomOptionParser.new('Usage: ./wpscan.rb [options]', 60)
-  option_parser.separator ''
-  option_parser.add(['-v', '--verbose', 'Verbose output'])
 
   controllers = Controllers.new(option_parser)
-  controllers.register(WPScanInfoController.new)
+  controllers.register(CommonController.new, WPScanInfoController.new)
 
-  wpscan_options = option_parser.results
+  begin
+    wpscan_options = option_parser.results
 
-  if wpscan_options.empty?
-    puts 'No option supplied'
+    raise 'No option supplied' if wpscan_options.empty?
+
+    # In CLI mode, the color codes are also output :/
+    # Maybe removed them at the end of the scan if the mode is  cli and there is the options[:output]
+    if output_file = wpscan_options[:output]
+      $stdout = File.open(output_file, 'w')
+    end
+
+    controllers.validate_parsed_options(wpscan_options)
+  rescue => e
+    puts controllers[:Common].result('banner')
+    puts e.message
+    puts
     puts option_parser
     exit(0)
   end
 
-  # What about the banner ?
-  # In CLI mode, the color code are also output :/
-  if output_file = wpscan_options[:output]
-    $stdout = File.open(output_file, 'w')
+  puts controllers[:Common].result('banner')
+
+  if wpscan_options[:version]
+    puts controllers[:Common].result('version')
+    exit(0)
   end
 
-  controllers.validate_parsed_options(wpscan_options)
+  # TODO
+  # Update
 
   wp_target = WpTarget.new(wpscan_options[:url], wpscan_options)
 
-  controllers.each do |_, controller|
-    controller.wp_target = wp_target
-  end
+  controllers.set_attribute('wp_target', wp_target)
 
   puts controllers[:WPScanInfo].result('scan_start')
   puts controllers[:WPScanInfo].result('scan_stop')
@@ -47,22 +55,6 @@ def main
 
   begin
     wpscan_options = WpscanOptions.load_from_arguments
-
-    unless wpscan_options.has_options?
-      usage()
-      raise('No argument supplied')
-    end
-
-    if wpscan_options.help
-      help()
-      usage()
-      exit(0)
-    end
-
-    if wpscan_options.version
-      puts "Current version is #{version}"
-      exit(0)
-    end
 
     # Check for updates
     if wpscan_options.update

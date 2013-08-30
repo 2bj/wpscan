@@ -2,22 +2,13 @@
 
 class Controller
 
-  attr_reader :author, :registered_options, :parsed_options
-
-  def initialize(infos = {})
-    @author    = infos[:author]
-
-    @views_dir = File.expand_path(File.join(
-      self.class.instance_method(:initialize).source_location[0], '..', '..' , 'views',
-      self.name.downcase
-    ))
-  end
+  attr_reader :registered_options, :parsed_options
 
   def name
     self.class.to_s.gsub(/Controller/, '')
   end
 
-  def allowed_formats
+  def self.allowed_formats
     %w{cli json}
   end
 
@@ -46,16 +37,32 @@ class Controller
   # param [ String ] action
   # return [ String ] The rendered action
   def render(action)
-    format = (@parsed_options[:format] || 'cli').downcase
+    view = File.join(views_dir, "#{action}.#{self.format}.erb")
 
-    if allowed_formats.include?(format)
-      view = File.join(@views_dir, "#{action}.#{format}.erb")
-
-      if File.exists?(view)
-        ERB.new(File.read(view)).result(binding)
-      else
-        raise "The file #{view} does not exist"
-      end
+    if File.exists?(view)
+      ERB.new(File.read(view)).result(binding)
+    else
+      raise "The file #{view} does not exist"
     end
+  end
+
+  # return [ String ] The output format (default: cli)
+  def format
+    format = @parsed_options ? (@parsed_options[:format] || 'cli').downcase : 'cli'
+    format = 'cli' unless Controller.allowed_formats.include?(format)
+    format
+  end
+
+  protected
+
+  # return [ String ] The absolute views directory path
+  def views_dir
+    unless @views_dir
+      @views_dir = File.expand_path(File.join(
+        self.class.instance_method(:initialize).source_location[0], '..', '..' , 'views',
+        self.name.downcase
+      ))
+    end
+    @views_dir
   end
 end
