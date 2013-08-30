@@ -49,8 +49,11 @@ def main
 
   controllers.set_attribute('wp_target', wp_target)
 
+  # Some checks there
+
   puts controllers[:WPScanInfo].result('scan_start')
 
+  # Scan here
 
   puts controllers[:WPScanInfo].result('scan_stop')
 

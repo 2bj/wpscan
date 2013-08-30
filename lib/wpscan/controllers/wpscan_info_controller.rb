@@ -27,6 +27,10 @@ class WPScanInfoController < WPScanController
     @start_time = Time.now
   end
 
+  def offline
+    @url = wp_target.url
+  end
+
   def scan_stop
     @stop_time = Time.now
     @elapsed = @stop_time - @start_time
