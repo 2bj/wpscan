@@ -35,8 +35,11 @@ class Controller
   end
 
   # param [ String ] action
+  # param [ Hash ] vars
   # return [ String ] The rendered action
-  def render(action)
+  def render(action, vars = {})
+    set_template_vars(vars)
+
     view = File.join(views_dir, "#{action}.#{self.format}.erb")
 
     if File.exists?(view)
@@ -62,6 +65,10 @@ class Controller
   end
 
   protected
+
+  def set_template_vars(vars)
+    vars.each { |key, value| instance_variable_set("@#{key}", value) }
+  end
 
   # return [ String ] The absolute path of the views directory
   def views_dir
