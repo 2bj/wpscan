@@ -8,10 +8,13 @@ def main
   # delete old logfile, check if it is a symlink first.
   File.delete(LOG_FILE) if File.exist?(LOG_FILE) and !File.symlink?(LOG_FILE)
 
-  option_parser = CustomOptionParser.new('Usage: ./wpscan.rb [options]', 60)
+  option_parser = CustomOptionParser.new('Usage: ./wpscan.rb [options]', 40)
 
-  controllers = Controllers.new(option_parser)
-  controllers.register(CommonController.new, WPScanInfoController.new)
+  $controllers = Controllers.new(option_parser)
+  $controllers.register(
+    CommonController.new, WPScanInfoController.new,
+    ProxyController.new, RedirectionController.new
+  )
 
   begin
     wpscan_options = option_parser.results
@@ -24,67 +27,36 @@ def main
       $stdout = File.open(output_file, 'w')
     end
 
-    controllers.validate_parsed_options(wpscan_options)
+    $controllers.validate_parsed_options(wpscan_options)
   rescue => e
-    puts controllers[:Common].result('banner')
-    puts e.message
-    puts
-    puts option_parser
-    exit(0)
+    $controllers[:Common].option_error(e, option_parser)
   end
 
-  puts controllers[:Common].result('banner')
-
-  if wpscan_options[:update]
-    puts controllers[:Common].result('update')
-    exit(0)
-  end
-
-  if wpscan_options[:version]
-    puts controllers[:Common].result('version')
-    exit(0)
-  end
+  $controllers[:Common].banner
+  $controllers[:Common].update if wpscan_options[:update]
+  $controllers[:Common].version if wpscan_options[:version]
 
   wp_target = WpTarget.new(wpscan_options[:url], wpscan_options)
 
-  controllers.set_attribute('wp_target', wp_target)
+  $controllers.set_attribute('wp_target', wp_target)
 
+  #
+  ## To finish
+  #
   begin
 
     if wpscan_options[:proxy]
-      proxy_response = Browser.get(wp_target.url)
-
-      unless WpTarget::valid_response_codes.include?(proxy_response.code)
-        raise "Proxy Error :\r\n#{proxy_response.headers}"
-      end
+      $controllers[:Proxy].check_proxy(wp_target.url)
     end
 
     # Remote website up?
     unless wp_target.online?
-      raise "The WordPress URL supplied '#{wp_target.uri}' seems to be down."
+      raise $controllers[:WPScanInfo].render('target_offline')
     end
 
-    if redirection = wp_target.redirection
-      unless controllers[:WPScanInfo].user_interaction?
-        raise "The remote host tried to redirect us to #{redirection}"
-      end
-
-      if wpscan_options[:follow_redirection]
-        puts controllers[:WPScanInfo].render('wp_target_check_info', msg: "Following redirection #{redirection}\r\n")
-      else
-        msg = "The remote host tried to redirect us to #{redirection}\r\n" +
-              'Do you want follow the redirection ? [y/N] '
-
-        print controllers[:WPScanInfo].render('wp_target_check_info', msg: msg)
-      end
-
-      if wpscan_options[:follow_redirection] or Readline.readline =~ /^y/i
-        wp_target = WpTarget.new(redirection, wpscan_options.merge(url: redirection))
-        controllers.set_attribute('wp_target', wp_target)
-      else
-        puts controllers[:WPScanInfo].render('wp_target_check_info', msg: 'Scan aborted')
-        exit(0)
-      end
+    if redirection = $controllers[:Redirection].check_redirection
+      wp_target = WpTarget.new(redirection, wpscan_options.merge(url: redirection))
+      $controllers.set_attribute('wp_target', wp_target)
     end
 
     if wp_target.has_basic_auth? && wpscan_options[:basic_auth].nil?
@@ -94,7 +66,7 @@ def main
     # Remote website is wordpress?
     unless wpscan_options[:force]
       unless wp_target.wordpress?
-        raise 'The remote website is up, but does not seem to be running WordPress.'
+        raise $controllers[:WPScanInfo].render('not_wordpress')
       end
     end
 
@@ -106,26 +78,26 @@ def main
       msg = "The plugins directory '#{wp_target.wp_plugins_dir}' does not exist.\r\n" +
             'You can specify one per command line option (don\'t forget to include the wp-content directory if needed)'
 
-      raise msg unless controllers[:WPScanInfo].user_interaction?
+      raise msg unless $controllers[:WPScanInfo].user_interaction?
 
-      print controllers[:WPScanInfo].render('wp_target_check_info', msg: msg + "\r\nContinue? [y/N] ")
+      print $controllers[:WPScanInfo].render('wp_target_check_info', msg: msg + "\r\nContinue? [y/N] ")
 
       unless Readline.readline =~ /^y/i
-        puts controllers[:WPScanInfo].render('wp_target_check_info', msg: 'Scan aborted')
+        puts $controllers[:WPScanInfo].render('wp_target_check_info', msg: 'Scan aborted')
         exit(0)
       end
     end
 
   rescue => e
-    puts controllers[:WPScanInfo].render('wp_target_check_error', msg: e.message)
-    exit(1)
+    puts e.message # The message is already rendered #puts $controllers[:WPScanInfo].render('wp_target_check_error', msg: e.message)
+    $controllers[:Common].exit(1)
   end
 
-  puts controllers[:WPScanInfo].result('scan_start')
+  puts $controllers[:WPScanInfo].result('scan_start')
 
   # Scan here
 
-  puts controllers[:WPScanInfo].result('scan_stop')
+  puts $controllers[:WPScanInfo].result('scan_stop')
 
   exit
 

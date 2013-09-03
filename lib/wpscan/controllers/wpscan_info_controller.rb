@@ -5,15 +5,12 @@ class WPScanInfoController < WPScanController
   def initialize
     register_options(
       ['-u', '--url TARGET_URL', 'The target url'],
-      ["--format [#{Controller.allowed_formats.join(',')}]", 'The output format'],
+      ["--format #{Controller.allowed_formats.join(',')}", 'The output format'],
       ['-o', '--output FILE', 'Output the results to the file supplied'],
       ['-f', '--force'],
-      ['--follow-redirection'],
       ['--wp-content-dir DIR'],
       ['--wp-plugins-dir DIR'],
       ['--basic-auth AUTH'],
-      ['--proxy PROXY'],
-      ['--proxy-auth AUTH']
     )
   end
 

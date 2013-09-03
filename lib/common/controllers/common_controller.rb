@@ -5,7 +5,9 @@ require_relative('controller.rb') # Line required as the current file is loaded 
 class CommonController < Controller
 
   def initialize
-    @updater = UpdaterFactory.get_updater(ROOT_DIR)
+    @updater  = UpdaterFactory.get_updater(ROOT_DIR)
+    @revision = @updater.local_revision_number if @updater
+    @version  = @revision ? "v#{WPSCAN_VERSION}r#{@revision}" : "v#{WPSCAN_VERSION}"
 
     register_options(
       ['-v', '--verbose', 'Verbose output'],
@@ -18,24 +20,38 @@ class CommonController < Controller
   ## Actions
   #
 
-  # This is the first thing output
+  # This is the first output
   # So is the format needs an opening tag or sort of (like json), it must be in the template
   def banner
-    version
+    puts render('banner')
   end
 
-  # Ending tag must be in the template (because the script will exit after tehe action)
+  # This is the last output
+  # If the format needs a closing tag, it must be in the template
+  # param [ Integer ] code The exit code (if > 0, an error occured)
+  def exit(code = 0)
+    puts render('exit', code: code)
+    Kernel.exit(code)
+  end
+
   def version
-    revision = @updater.local_revision_number() if @updater
-    @version = revision ? "v#{WPSCAN_VERSION}r#{revision}" : "v#{WPSCAN_VERSION}"
+    puts render('version')
+    exit
   end
 
-  # Ending tag must be in the template (because the script will exit after tehe action)
+  # param [ Exception ] e
+  # param [ CustomOptionParser ] parser
+  def option_error(e, parser)
+    banner
+    puts render('option_error', e: e, parser: parser)
+    exit(1)
+  end
+
   def update
     if !@updater.nil?
       if @updater.has_local_changes?
         if user_interaction?
-          print "#{red('[!]')} Local file changes detected, an update will override local changes, do you want to continue updating? [y/n] "
+          print "#{red('[!]')} Local file changes detected, an update will override local changes, do you want to continue updating? [y/N] "
 
           if Readline.readline =~ /^y/i
             @updater.reset_head
@@ -52,6 +68,9 @@ class CommonController < Controller
     else
       @not_installed = true
     end
+
+    puts render('update')
+    exit
   end
 
 end
