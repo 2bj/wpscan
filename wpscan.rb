@@ -19,7 +19,7 @@ def main
     raise 'No option supplied' if wpscan_options.empty?
 
     # In CLI mode, the color codes are also output :/
-    # Maybe removed them at the end of the scan if the mode is  cli and there is the options[:output]
+    # Maybe removed them at the end of the scan if the mode is cli and there is the options[:output]
     if output_file = wpscan_options[:output]
       $stdout = File.open(output_file, 'w')
     end
@@ -49,7 +49,77 @@ def main
 
   controllers.set_attribute('wp_target', wp_target)
 
-  # Some checks there
+  begin
+
+    if wpscan_options[:proxy]
+      proxy_response = Browser.get(wp_target.url)
+
+      unless WpTarget::valid_response_codes.include?(proxy_response.code)
+        raise "Proxy Error :\r\n#{proxy_response.headers}"
+      end
+    end
+
+    # Remote website up?
+    unless wp_target.online?
+      raise "The WordPress URL supplied '#{wp_target.uri}' seems to be down."
+    end
+
+    if redirection = wp_target.redirection
+      unless controllers[:WPScanInfo].user_interaction?
+        raise "The remote host tried to redirect us to #{redirection}"
+      end
+
+      if wpscan_options[:follow_redirection]
+        puts controllers[:WPScanInfo].render('wp_target_check_info', msg: "Following redirection #{redirection}\r\n")
+      else
+        msg = "The remote host tried to redirect us to #{redirection}\r\n" +
+              'Do you want follow the redirection ? [y/N] '
+
+        print controllers[:WPScanInfo].render('wp_target_check_info', msg: msg)
+      end
+
+      if wpscan_options[:follow_redirection] or Readline.readline =~ /^y/i
+        wp_target = WpTarget.new(redirection, wpscan_options.merge(url: redirection))
+        controllers.set_attribute('wp_target', wp_target)
+      else
+        puts controllers[:WPScanInfo].render('wp_target_check_info', msg: 'Scan aborted')
+        exit(0)
+      end
+    end
+
+    if wp_target.has_basic_auth? && wpscan_options[:basic_auth].nil?
+      raise 'Basic authentication is required, please provide it with --basic-auth <login:password>'
+    end
+
+    # Remote website is wordpress?
+    unless wpscan_options[:force]
+      unless wp_target.wordpress?
+        raise 'The remote website is up, but does not seem to be running WordPress.'
+      end
+    end
+
+    unless wp_target.wp_content_dir
+      raise 'The wp_content_dir has not been found, please supply it with --wp-content-dir'
+    end
+
+    unless wp_target.wp_plugins_dir_exists?
+      msg = "The plugins directory '#{wp_target.wp_plugins_dir}' does not exist.\r\n" +
+            'You can specify one per command line option (don\'t forget to include the wp-content directory if needed)'
+
+      raise msg unless controllers[:WPScanInfo].user_interaction?
+
+      print controllers[:WPScanInfo].render('wp_target_check_info', msg: msg + "\r\nContinue? [y/N] ")
+
+      unless Readline.readline =~ /^y/i
+        puts controllers[:WPScanInfo].render('wp_target_check_info', msg: 'Scan aborted')
+        exit(0)
+      end
+    end
+
+  rescue => e
+    puts controllers[:WPScanInfo].render('wp_target_check_error', msg: e.message)
+    exit(1)
+  end
 
   puts controllers[:WPScanInfo].result('scan_start')
 
@@ -63,62 +133,6 @@ def main
     wpscan_options = WpscanOptions.load_from_arguments
 
     wp_target = WpTarget.new(wpscan_options.url, wpscan_options.to_h)
-
-    # Remote website up?
-    unless wp_target.online?
-      raise "The WordPress URL supplied '#{wp_target.uri}' seems to be down."
-    end
-
-    if wpscan_options.proxy
-      proxy_response = Browser.get(wp_target.url)
-
-      unless WpTarget::valid_response_codes.include?(proxy_response.code)
-        raise "Proxy Error :\r\n#{proxy_response.headers}"
-      end
-    end
-
-    redirection = wp_target.redirection
-    if redirection
-      if wpscan_options.follow_redirection
-        puts "Following redirection #{redirection}"
-        puts
-      else
-        puts "The remote host tried to redirect us to #{redirection}"
-        print 'Do you want follow the redirection ? [y/n] '
-      end
-
-      if wpscan_options.follow_redirection or Readline.readline =~ /^y/i
-        wpscan_options.url = redirection
-        wp_target = WpTarget.new(redirection, wpscan_options.to_h)
-      else
-        puts 'Scan aborted'
-        exit(0)
-      end
-    end
-
-    if wp_target.has_basic_auth? && wpscan_options.basic_auth.nil?
-      raise 'Basic authentication is required, please provide it with --basic-auth <login:password>'
-    end
-
-    # Remote website is wordpress?
-    unless wpscan_options.force
-      unless wp_target.wordpress?
-        raise 'The remote website is up, but does not seem to be running WordPress.'
-      end
-    end
-
-    unless wp_target.wp_content_dir
-      raise 'The wp_content_dir has not been found, please supply it with --wp-content-dir'
-    end
-
-    unless wp_target.wp_plugins_dir_exists?
-      puts "The plugins directory '#{wp_target.wp_plugins_dir}' does not exist."
-      puts 'You can specify one per command line option (don\'t forget to include the wp-content directory if needed)'
-      print 'Continue? [y/n] '
-      unless Readline.readline =~ /^y/i
-        exit(0)
-      end
-    end
 
     # Output runtime data
     start_time = Time.now

@@ -6,7 +6,14 @@ class WPScanInfoController < WPScanController
     register_options(
       ['-u', '--url TARGET_URL', 'The target url'],
       ["--format [#{Controller.allowed_formats.join(',')}]", 'The output format'],
-      ['-o', '--output FILE', 'Output the results to the file supplied']
+      ['-o', '--output FILE', 'Output the results to the file supplied'],
+      ['-f', '--force'],
+      ['--follow-redirection'],
+      ['--wp-content-dir DIR'],
+      ['--wp-plugins-dir DIR'],
+      ['--basic-auth AUTH'],
+      ['--proxy PROXY'],
+      ['--proxy-auth AUTH']
     )
   end
 
@@ -25,10 +32,6 @@ class WPScanInfoController < WPScanController
   #
   def scan_start
     @start_time = Time.now
-  end
-
-  def offline
-    @url = wp_target.url
   end
 
   def scan_stop
